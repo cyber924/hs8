@@ -140,7 +140,7 @@ export default {async fetch(req,env){
   if(path.startsWith('/market/document/')){
    const d=await one(db,"SELECT * FROM documents WHERE slug=? AND status='published'",decodeURIComponent(path.split('/').at(-1)));
    if(!d)return html('공개 문서를 찾을 수 없습니다. <a href="/market">공개마켓</a>',404);
-   const canonical=u.origin+urlFor(d),description=d.seo_description||d.body.slice(0,150),image=images(d).length?u.origin+'/media/'+d.id+'/0':'';
+   const canonical=u.origin+urlFor(d),description=d.seo_description||d.body.slice(0,150),image=images(d).length?(images(d)[0].url||u.origin+'/media/'+d.id+'/0'):'';
    const related=await list(db,"SELECT * FROM documents WHERE status='published' AND domain=? AND id!=? ORDER BY published_at DESC LIMIT 3",d.domain,d.id);
    return page(d.title,`<nav class="detail-nav" aria-label="문서 탐색"><a class="detail-home" href="/market">공개마켓</a><span class="detail-divider" aria-hidden="true">/</span><a class="detail-category" href="/market?domain=${encodeURIComponent(d.domain)}">${e(d.domain)}</a></nav>${article(d)}<div class="actions"><button id="copy">공유 링크 복사</button><output id="copied"></output></div>${related.length?`<h2>관련 문서</h2><div class="grid">${related.map(card).join('')}</div>`:''}<script>document.querySelector('#copy').onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+location.pathname);document.querySelector('#copied').textContent='링크를 복사했습니다.'}catch{document.querySelector('#copied').textContent=location.href}}</script>`,{me,active:'/market',canonical,description,image,searchTitle:d.seo_title||d.title,articleMeta:true,schema:[{'@context':'https://schema.org','@type':d.type==='보고서'?'Report':'Article',headline:d.title,description,url:canonical,datePublished:d.published_at,dateModified:d.updated_at,...(mediaRecord(d).byline?{author:{'@type':'Person',name:mediaRecord(d).byline}}:{}),...(mediaRecord(d).sources?.length?{citation:mediaRecord(d).sources}:{}),...(image?{image}:{})},{'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'공개마켓',item:u.origin+'/market'},{'@type':'ListItem',position:2,name:d.title,item:canonical}]}]});
   }
@@ -189,7 +189,8 @@ export default {async fetch(req,env){
    const target={publish:'published',unpublish:'draft',delete:'deleted',restore:'draft'}[op];
    if(!target||(op==='restore')!==(d.status==='deleted'))return html('문서 상태를 확인해 주세요.',400);
    const time=new Date().toISOString();
-   await run(db,'UPDATE documents SET status=?,published_at=?,updated_at=? WHERE id=? AND user_id=? AND status=? AND updated_at=?',target,target==='published'?d.published_at||time:null,time,id,me.id,d.status,d.updated_at);
+   const result=await run(db,'UPDATE documents SET status=?,published_at=?,updated_at=? WHERE id=? AND user_id=? AND status=?',target,target==='published'?d.published_at||time:null,time,id,me.id,d.status);
+   if(!result.meta.changes)return html('공개 배포에 실패했습니다. 문서 상태가 변경되었을 수 있으니 보관함에서 다시 열어 주세요.',409);
    return redirect(target==='published'?urlFor(d):'/archive');
   }
   return html('페이지를 찾을 수 없습니다.',404);
