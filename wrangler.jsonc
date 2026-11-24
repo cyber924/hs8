@@ -1,21 +1,12 @@
-// HubStudio 8 Cloudflare deployment
 {
   "name": "hs8",
   "main": "dist/server/index.js",
   "compatibility_date": "2026-11-24",
-
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "hubstudio8-db",
       "database_id": "a7909350-1036-4875-b5a3-cd4f4aff1a93"
-    }
-  ],
-
-  "r2_buckets": [
-    {
-      "binding": "BUCKET",
-      "bucket_name": "hubstudio8-images"
     }
   ]
 }
