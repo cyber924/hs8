@@ -1,6 +1,6 @@
 // HubStudio 8 Cloudflare deployment
 {
-  "name": "autumn-cell-d34a",
+  "name": "hs8",
   "main": "dist/server/index.js",
   "compatibility_date": "2026-11-24",
 
