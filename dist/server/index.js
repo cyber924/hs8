@@ -43,42 +43,21 @@ function loginPage(next,me,signup=false,message=''){
 const nextPath=x=>typeof x==='string'&&/^\/(?:write|archive)(?:\?id=[a-f0-9-]+)?$/.test(x)?x:'/write';
 const select=(name,values,value,all='')=>`<select name="${name}" aria-label="${name==='type'?'문서 유형':'분야'}">${all?`<option value="">${all}</option>`:''}${values.map(v=>`<option${v===value?' selected':''}>${v}</option>`).join('')}</select>`;
 const statusLabel={draft:'임시저장',published:'공개 중',deleted:'휴지통'};
-const imageTag=(d,i,cls='',lazy=true)=>`<img class="${cls}" src="/media/${e(d.id)}/${i}" width="960" height="540" decoding="async" alt="${e(images(d)[i]?.alt||d.title)}"${lazy?' loading="lazy"':' fetchpriority="high"'}>`;
+const imageTag=(d,i,cls='',lazy=true)=>{const im=images(d)[i]||{};const src=im.url||('/media/'+encodeURIComponent(d.id)+'/'+i);return `<img class="${cls}" src="${e(src)}" width="960" height="540" decoding="async" alt="${e(im.alt||d.title)}" referrerpolicy="no-referrer"${lazy?' loading="lazy"':' fetchpriority="high"'}>`;};
 function editor(d,message='',me=null){
- return page(d?'문서 수정':'새 문서',`<div class="workspace-heading"><h1>${d?'문서 수정':'새 문서'}</h1><a href="/archive">내 보관함</a></div><form class="editor-grid" method="post" action="/save" enctype="multipart/form-data"><input type="hidden" name="id" value="${e(d?.id)}"><section class="panel writing-panel"><h2>문서 내용</h2><div class="field-pair"><label>문서 유형${select('type',types,d?.type)}</label><label>분야${select('domain',domains,d?.domain)}</label></div><label>제목<input name="title" required maxlength="200" value="${e(d?.title)}"></label><div class="writing-tools"><label for="editor-body">본문</label><button type="button" class="secondary" id="generate">Gemini 초안 생성</button></div><textarea id="editor-body" name="body" required>${e(d?.body)}</textarea><details class="search-settings"${d?.seo_title||mediaRecord(d).sources?.length?" open":""}><summary>검색 및 출처 설정</summary><label>검색 제목<input name="searchTitle" maxlength="75" value="${e(d?.seo_title)}" placeholder="비워 두면 문서 제목 사용"></label><label>공개 작성자<input name="byline" maxlength="80" value="${e(mediaRecord(d).byline)}"></label><label>출처 URL · 한 줄에 하나<textarea class="source-input" name="sources">${e((mediaRecord(d).sources||[]).join("\n"))}</textarea></label><label>검색 설명<input name="description" maxlength="170" value="${e(d?.seo_description)}"></label></details><p class="error" role="status" id="message">${e(message)}</p><div class="actions editor-save"><button>저장</button></div></section><aside class="panel media-panel"><h2>문서 이미지</h2><p class="muted">최대 3장. 첫 번째 이미지를 대표 이미지로 사용합니다. 공개하려면 1장 이상 저장해 주세요.</p>
- ${Array.from({length:3},(_,i)=>`<details class="image-slot"${i===0||images(d)[i]?" open":""}><summary>${i===0?"대표 이미지":"추가 이미지 "+i}</summary>${images(d)[i]&&d?.id?`${imageTag(d,i,'thumb')}<label><input style="width:auto;display:inline" type="checkbox" name="remove${i}"> 삭제</label>`:''}<label>${images(d)[i]?'교체':'추가'}<input type="file" name="image${i}" accept="image/jpeg,image/png,image/webp"></label><label>이미지 설명<input name="alt${i}" maxlength="160" value="${e(images(d)[i]?.alt)}"></label></details>`).join('')}
+ return page(d?'문서 수정':'새 문서',`<div class="workspace-heading"><h1>${d?'문서 수정':'새 문서'}</h1><a href="/archive">내 보관함</a></div><form class="editor-grid" method="post" action="/save" enctype="multipart/form-data"><input type="hidden" name="id" value="${e(d?.id)}"><section class="panel writing-panel"><h2>문서 내용</h2><div class="field-pair"><label>문서 유형${select('type',types,d?.type)}</label><label>분야${select('domain',domains,d?.domain)}</label></div><label>제목<input name="title" required maxlength="200" value="${e(d?.title)}"></label><div class="writing-tools"><label for="editor-body">본문</label><button type="button" class="secondary" id="generate">Gemini 초안 생성</button></div><textarea id="editor-body" name="body" required>${e(d?.body)}</textarea><details class="search-settings"${d?.seo_title||mediaRecord(d).sources?.length?" open":""}><summary>검색 및 출처 설정</summary><label>검색 제목<input name="searchTitle" maxlength="75" value="${e(d?.seo_title)}" placeholder="비워 두면 문서 제목 사용"></label><label>공개 작성자<input name="byline" maxlength="80" value="${e(mediaRecord(d).byline)}"></label><label>출처 URL · 한 줄에 하나<textarea class="source-input" name="sources">${e((mediaRecord(d).sources||[]).join("\n"))}</textarea></label><label>검색 설명<input name="description" maxlength="170" value="${e(d?.seo_description)}"></label></details><p class="error" role="status" id="message">${e(message)}</p><div class="actions editor-save"><button>저장</button></div></section><aside class="panel media-panel"><h2>문서 이미지</h2><p class="muted">이미지 URL을 입력하세요. 최대 3장까지 지원하며 이미지 없이도 저장·공개할 수 있습니다. 첫 번째 이미지가 대표 이미지입니다.</p>
+ ${Array.from({length:3},(_,i)=>`<details class="image-slot"${i===0||images(d)[i]?" open":""}><summary>${i===0?"대표 이미지":"추가 이미지 "+i}</summary>${images(d)[i]&&d?.id?`${imageTag(d,i,'thumb')}<label><input style="width:auto;display:inline" type="checkbox" name="remove${i}"> 삭제</label>`:''}<label>이미지 주소 (https://)<input type="url" name="imageUrl${i}" maxlength="2048" placeholder="https://example.com/image.jpg" value="${e(images(d)[i]?.url||'')}" inputmode="url"></label><label>이미지 설명<input name="alt${i}" maxlength="160" value="${e(images(d)[i]?.alt)}"></label></details>`).join('')}
  </aside></form><script>
  const editorForm=document.querySelector('.editor-grid');
- let prepared=false;
- editorForm.addEventListener('submit',async event=>{
-  if(prepared)return;
-  const fields=[...editorForm.querySelectorAll('input[type=file]')].filter(input=>input.files[0]&&['image/jpeg','image/png','image/webp'].includes(input.files[0].type));
-  if(!fields.length)return;
-  event.preventDefault();
-  const submitter=event.submitter;
-  if(submitter)submitter.disabled=true;
-  try{
-   for(const input of fields){
-    const original=input.files[0];
-    try{
-     const bitmap=await createImageBitmap(original);
-     const scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height));
-     if(scale===1&&original.size<500000){bitmap.close();continue}
-     const canvas=document.createElement('canvas');
-     canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-     canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
-     const smaller=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',.85));
-     if(smaller?.type!=='image/webp'||smaller.size>=original.size)continue;
-     const transfer=new DataTransfer();
-     transfer.items.add(new File([smaller],original.name.replace(/\.[^.]+$/,'')+'.webp',{type:smaller.type}));
-     input.files=transfer.files;
-    }catch{}
-   }
-   prepared=true;
-  }finally{
-   if(submitter)submitter.disabled=false;
-  }
-  editorForm.requestSubmit(submitter||undefined);
+ editorForm.querySelectorAll('input[name^="imageUrl"]').forEach(input=>{
+  input.addEventListener('input',()=>{
+   const slot=input.closest('.image-slot');
+   let preview=slot.querySelector('.url-preview');
+   if(!preview){preview=document.createElement('img');preview.className='thumb url-preview';preview.alt='이미지 미리보기';preview.loading='lazy';slot.append(preview)}
+   const value=input.value.trim();
+   try{const url=new URL(value);preview.hidden=!(url.protocol==='https:'||url.protocol==='http:');if(!preview.hidden)preview.src=url.href;else preview.removeAttribute('src')}
+   catch{preview.hidden=true;preview.removeAttribute('src')}
+  });
  });
  document.querySelector('#generate').onclick=async function(){
  const form=this.form,status=document.querySelector('#message');
@@ -124,32 +103,26 @@ async function save(req,env,me){
  const doc={id:id||crypto.randomUUID(),title:String(f.get('title')||'').trim(),body:String(f.get('body')||'').trim(),type:f.get('type'),domain:f.get('domain'),seo_description:String(f.get('description')||'').slice(0,170)};
  const reject=message=>editor({...doc,id,image_key:old?.image_key},message,me);
  if(!doc.title||doc.title.length>200||!doc.body||doc.body.length>100000||!types.includes(doc.type)||!domains.includes(doc.domain))return reject('제목, 본문, 문서 유형과 분야를 확인해 주세요.');
- const before=images(old),next=[],uploads=[],uploaded=[];
+ const before=images(old),next=[];
  for(let i=0;i<3;i++){
-  const file=f.get('image'+i),alt=String(f.get('alt'+i)||'').slice(0,160);
-  if(file?.size){
-   const bytes=new Uint8Array(await file.arrayBuffer());
-   const mime=file.type;
-   const signature=mime==='image/jpeg'&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255||mime==='image/png'&&bytes[0]===137&&String.fromCharCode(...bytes.slice(1,4))==='PNG'||mime==='image/webp'&&String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP';
-   if(file.size>5*1024*1024||!signature)return reject('이미지는 5MB 이하 JPEG·PNG·WebP 파일만 저장할 수 있습니다.');
-   const key=me.id+'/'+crypto.randomUUID();
-   uploads.push({key,bytes,mime});next.push({key,alt});
-  }else if(before[i]&&!f.has('remove'+i)){next.push({...before[i],alt})}
+  const raw=String(f.get('imageUrl'+i)||'').trim(),alt=String(f.get('alt'+i)||'').slice(0,160);
+  if(f.has('remove'+i))continue;
+  if(raw){
+   let parsed;
+   try{parsed=new URL(raw)}catch{return reject('이미지 주소 형식이 올바르지 않습니다.')}
+   if(!['https:','http:'].includes(parsed.protocol)||parsed.username||parsed.password||raw.length>2048)return reject('이미지 주소는 올바른 HTTP 또는 HTTPS 주소여야 합니다.');
+   next.push({url:parsed.href,alt});
+  }else if(before[i]&&!before[i].url)next.push({...before[i],alt});
  }
- if(old?.status==='published'&&!next.length)return reject('공개 문서는 이미지가 1장 이상 필요합니다. 먼저 공개를 취소할 수 있습니다.');
  const time=new Date().toISOString();
  const searchTitle=String(f.get('searchTitle')||'').trim().slice(0,75);
  const byline=String(f.get('byline')||'').trim().slice(0,80);
  const sources=sourceUrls(f.get('sources'));
  const data=[doc.type,doc.domain,doc.title,doc.body,JSON.stringify({images:next,byline,sources}),doc.seo_description,searchTitle,time];
- try{
-  for(const u of uploads){await env.BUCKET.put(u.key,u.bytes,{httpMetadata:{contentType:u.mime}});uploaded.push(u.key)}
-  if(old){
-   const result=await run(db,"UPDATE documents SET type=?,domain=?,title=?,body=?,image_key=?,seo_description=?,seo_title=?,updated_at=? WHERE id=? AND user_id=? AND updated_at=? AND status=?",...data,id,me.id,old.updated_at,old.status);
-   if(!result.meta.changes){await Promise.allSettled(uploaded.map(k=>env.BUCKET.delete(k)));return reject('다른 화면에서 문서가 변경되었습니다. 보관함에서 다시 열어 주세요.')}
-  }else await run(db,"INSERT INTO documents(type,domain,title,body,image_key,seo_description,seo_title,updated_at,id,user_id,slug,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",...data,doc.id,me.id,doc.id,time);
- }catch(error){await Promise.allSettled(uploaded.map(k=>env.BUCKET.delete(k)));throw error}
- await Promise.allSettled(before.filter(im=>!next.some(x=>x.key===im.key)).map(im=>env.BUCKET.delete(im.key)));
+ if(old){
+  const result=await run(db,"UPDATE documents SET type=?,domain=?,title=?,body=?,image_key=?,seo_description=?,seo_title=?,updated_at=? WHERE id=? AND user_id=? AND updated_at=? AND status=?",...data,id,me.id,old.updated_at,old.status);
+  if(!result.meta.changes)return reject('다른 화면에서 문서가 변경되었습니다. 보관함에서 다시 열어 주세요.');
+ }else await run(db,"INSERT INTO documents(type,domain,title,body,image_key,seo_description,seo_title,updated_at,id,user_id,slug,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",...data,doc.id,me.id,doc.id,time);
  return redirect('/write?id='+doc.id);
 }
 export default {async fetch(req,env){
@@ -193,7 +166,7 @@ export default {async fetch(req,env){
   if(media){
    const d=await one(db,'SELECT * FROM documents WHERE id=?',media[1]);
    const image=d&&(d.status==='published'||d.user_id===me?.id)&&images(d)[Number(media[2])];
-   const file=image&&await env.BUCKET.get(image.key);
+   const file=image?.key&&env.BUCKET?await env.BUCKET.get(image.key):null;
    return file?new Response(file.body,{headers:{'content-type':file.httpMetadata.contentType,'cache-control':'private, no-store','x-content-type-options':'nosniff'}}):html('이미지를 찾을 수 없습니다.',404);
   }
   if(!me)return path.startsWith('/api/')?j({error:'로그인이 필요합니다.'},401):redirect('/login?next='+encodeURIComponent(nextPath(path+u.search)));
@@ -206,7 +179,7 @@ export default {async fetch(req,env){
    if(id&&!d)return html('문서를 찾을 수 없습니다.',404);
    if(path==='/write')return editor(d,'',me);
    if(!d)return redirect('/archive');
-   return page('문서 미리보기',`<div class="actions review-bar"><a href="/archive">내 보관함</a>${u.searchParams.has('delete')?action(d,'delete','휴지통으로 이동','danger'):d.status!=='published'&&images(d).length?action(d,'publish','공개마켓 배포','button'):d.status!=='published'?'<span>공개 전에 이미지를 추가해 주세요.</span>':''}</div>${article(d)}`,{me,active:'/archive'});
+   return page('문서 미리보기',`<div class="actions review-bar"><a href="/archive">내 보관함</a>${u.searchParams.has('delete')?action(d,'delete','휴지통으로 이동','danger'):d.status!=='published'?action(d,'publish','공개마켓 배포','button'):''}</div>${article(d)}`,{me,active:'/archive'});
   }
   if(path==='/save'&&req.method==='POST')return await save(req,env,me);
   if(path==='/document-action'&&req.method==='POST'){
@@ -214,7 +187,7 @@ export default {async fetch(req,env){
    const d=await one(db,'SELECT * FROM documents WHERE id=? AND user_id=?',id,me.id);
    if(!d)return html('문서를 찾을 수 없습니다.',404);
    const target={publish:'published',unpublish:'draft',delete:'deleted',restore:'draft'}[op];
-   if(!target||(op==='restore')!==(d.status==='deleted')||op==='publish'&&(images(d).length<1||images(d).length>3))return html('문서 상태 또는 이미지 수를 확인해 주세요.',400);
+   if(!target||(op==='restore')!==(d.status==='deleted'))return html('문서 상태를 확인해 주세요.',400);
    const time=new Date().toISOString();
    await run(db,'UPDATE documents SET status=?,published_at=?,updated_at=? WHERE id=? AND user_id=? AND status=? AND updated_at=?',target,target==='published'?d.published_at||time:null,time,id,me.id,d.status,d.updated_at);
    return redirect(target==='published'?urlFor(d):'/archive');
