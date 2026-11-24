@@ -1,3 +1,4 @@
+// HubStudio 8 Cloudflare deployment
 {
   "name": "autumn-cell-d34a",
   "main": "dist/server/index.js",
