@@ -118,7 +118,7 @@ function promptCard(p){
 async function promptsPage(db,me){
  await seedPromptTopics(db,me.id);
  const topics=await list(db,'SELECT * FROM prompt_topics WHERE user_id=? ORDER BY created_at DESC LIMIT 300',me.id);
- return page('프롬프트 라이브러리','<section class="hero"><div><span class="eyebrow">HUB STUDIO 8 · PROMPT LIBRARY</span><h1>좋은 주제에서<br>좋은 문서가 시작됩니다.</h1><p>분야별 기본 주제를 골라 바로 글을 쓰거나, AI에게 새로운 주제 10개를 추천받으세요. 추천 주제는 내 라이브러리에 자동 저장됩니다.</p></div></section><section class="panel"><div class="section-head"><div><h2>AI 주제 추천</h2><span>새 추천 10개를 생성하고 자동으로 보관합니다.</span></div></div><div class="field-pair"><label>문서 유형'+select('type',types,'','전체 유형')+'</label><label>분야'+select('domain',domains,'','전체 분야')+'</label></div><div class="actions actionrow"><button id="recommend">AI 추천 10개 받기</button><span id="recommend-status" class="muted" role="status"></span></div></section><section><div class="section-head"><h2>내 주제 라이브러리</h2><span id="topic-count">'+topics.length+'개 누적</span></div><div class="grid" id="prompt-list">'+topics.map(promptCard).join('')+'</div></section><script>
+ const body=`<section class="hero"><div><span class="eyebrow">HUB STUDIO 8 · PROMPT LIBRARY</span><h1>좋은 주제에서<br>좋은 문서가 시작됩니다.</h1><p>분야별 기본 주제를 골라 바로 글을 쓰거나, AI에게 새로운 주제 10개를 추천받으세요. 추천 주제는 내 라이브러리에 자동 저장됩니다.</p></div></section><section class="panel"><div class="section-head"><div><h2>AI 주제 추천</h2><span>새 추천 10개를 생성하고 자동으로 보관합니다.</span></div></div><div class="field-pair"><label>문서 유형${select('type',types,'','전체 유형')}</label><label>분야${select('domain',domains,'','전체 분야')}</label></div><div class="actions actionrow"><button id="recommend">AI 추천 10개 받기</button><span id="recommend-status" class="muted" role="status"></span></div></section><section><div class="section-head"><h2>내 주제 라이브러리</h2><span id="topic-count">${topics.length}개 누적</span></div><div class="grid" id="prompt-list">${topics.map(promptCard).join('')}</div></section><script>
 const recommendButton=document.querySelector('#recommend');
 recommendButton.addEventListener('click',async()=>{
  recommendButton.disabled=true;
@@ -143,7 +143,8 @@ recommendButton.addEventListener('click',async()=>{
  }catch(error){status.textContent=error.message}
  finally{recommendButton.disabled=false}
 });
-</script>',{me,active:'/prompts'});
+</script>`;
+ return page('프롬프트 라이브러리',body,{me,active:'/prompts'});
 }
 async function recommendPrompts(req,env,db,me){
  await ensurePromptStore(db);
