@@ -1,6 +1,6 @@
-async function draft(req,env){const b=await req.json();const prompt=`당신은 한국어 전문 문서 작성자입니다. 문서 유형은 ${b.type}, 분야는 ${b.domain}, 주제는 ${b.title||'새로운 전문 주제'}입니다. 공백 포함 반드시 2,000자 이상 3,500자 이하의 전문적인 문서를 작성하세요. 확인되지 않은 사실과 허위 통계는 만들지 마세요. 독자가 실제로 활용할 수 있도록 배경, 핵심 분석, 사례, 실행 방법, 주의점, 결론을 포함하세요. 기사라면 제목과 리드문을 포함하고, 보고서라면 분석과 시사점을 포함하며, 보도자료라면 발표 메시지와 인용문을 포함하고, 사업계획서라면 문제·해결책·시장·수익모델·실행계획을 포함하세요. JSON만 반환하세요. {"title":"제목","body":"2,000자 이상 본문","summary":"150자 요약","outline":"목차 5개","keywords":"키워드 7개"}`;if(!env.GEMINI_API_KEY)return j({ok:false,error:'Gemini API 키가 Worker Secret에 등록되지 않았습니다.'},503);let res,data;const payload={contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.6,responseMimeType:'application/json'}};for(const model of ['gemini-3.5-flash','gemini-3.8-flash','gemini-2.5-flash','gemini-2.0-flash']){res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},body:JSON.stringify(payload)});if(res.ok){data=await res.json();break}}if(!res||!res.ok)return j({ok:false,error:'Gemini API 응답 오류'},502);const d=data;const text=d.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'{}';const draft=JSON.parse(text.replace(/^```json\s*/,'').replace(/\s*```$/,'')); if(typeof draft.body!=='string'||[...draft.body.trim()].length<=2000)return j({error:'본문이 2,000자를 넘지 않았습니다. 다시 생성해 주세요.'},502); return j({ok:true,...draft})}
+async function draft(req,env){const b=await req.json();const prompt=`당신은 한국어 전문 문서 작성자입니다. 문서 유형은 ${b.type}, 분야는 ${b.domain}, 주제는 ${b.title||'새로운 전문 주제'}입니다. 추가 작성 지시사항: ${String(b.instruction||'').slice(0,3000)}. 공백 포함 반드시 2,000자 이상 3,500자 이하의 전문적인 문서를 작성하세요. 확인되지 않은 사실과 허위 통계는 만들지 마세요. 독자가 실제로 활용할 수 있도록 배경, 핵심 분석, 사례, 실행 방법, 주의점, 결론을 포함하세요. 기사라면 제목과 리드문을 포함하고, 보고서라면 분석과 시사점을 포함하며, 보도자료라면 발표 메시지와 인용문을 포함하고, 사업계획서라면 문제·해결책·시장·수익모델·실행계획을 포함하세요. JSON만 반환하세요. {"title":"제목","body":"2,000자 이상 본문","summary":"150자 요약","outline":"목차 5개","keywords":"키워드 7개"}`;if(!env.GEMINI_API_KEY)return j({ok:false,error:'Gemini API 키가 Worker Secret에 등록되지 않았습니다.'},503);let res,data;const payload={contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.6,responseMimeType:'application/json'}};for(const model of ['gemini-3.5-flash','gemini-3.8-flash','gemini-2.5-flash','gemini-2.0-flash']){res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},body:JSON.stringify(payload)});if(res.ok){data=await res.json();break}}if(!res||!res.ok)return j({ok:false,error:'Gemini API 응답 오류'},502);const d=data;const text=d.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'{}';const draft=JSON.parse(text.replace(/^```json\s*/,'').replace(/\s*```$/,'')); if(typeof draft.body!=='string'||[...draft.body.trim()].length<=2000)return j({error:'본문이 2,000자를 넘지 않았습니다. 다시 생성해 주세요.'},502); return j({ok:true,...draft})}
 const types=['기사','보고서','보도자료','사업계획서'];
-const domains=['경제','IT','법률','마케팅'];
+const domains=['경제','금융','IT·AI','산업·에너지','부동산·건설','정치·국제','기업·경영','사회·문화','과학·환경','법률','마케팅'];
 const e=(s='')=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const j=(x,status=200)=>Response.json(x,{status});
 const html=(s,status=200)=>new Response(s,{status,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
@@ -20,7 +20,7 @@ const list=(db,sql,...args)=>db.prepare(sql).bind(...args).all().then(r=>r.resul
 const one=(db,sql,...args)=>db.prepare(sql).bind(...args).first();
 const run=(db,sql,...args)=>db.prepare(sql).bind(...args).run();
 function navigation(me,active){
- const links=[['/','홈'],['/market','공개마켓'],['/write','새 문서'],['/archive','내 보관함']];
+ const links=[['/','홈'],['/market','공개마켓'],['/write','새 문서'],['/prompts','프롬프트'],['/archive','내 보관함']];
  return `<header class="site-header"><a class="brand" href="/"><span class="brand-mark">8</span> HUB STUDIO</a><nav class="site-nav" aria-label="주 메뉴">${links.map(([href,label])=>`<a href="${href}"${active===href?' aria-current="page"':''}>${label}</a>`).join('')}</nav><a class="login-state" href="/login">${me?`<span aria-hidden="true"></span>로그인됨${me.name?' · '+e(me.name):''}`:'로그인'}</a></header>`;
 }
 function page(title,body,{canonical='',description='',schema=null,image='',me=null,active='',searchTitle=title,articleMeta=false}={}){
@@ -44,8 +44,8 @@ const nextPath=x=>typeof x==='string'&&/^\/(?:write|archive)(?:\?id=[a-f0-9-]+)?
 const select=(name,values,value,all='')=>`<select name="${name}" aria-label="${name==='type'?'문서 유형':'분야'}">${all?`<option value="">${all}</option>`:''}${values.map(v=>`<option${v===value?' selected':''}>${v}</option>`).join('')}</select>`;
 const statusLabel={draft:'임시저장',published:'공개 중',deleted:'휴지통'};
 const imageTag=(d,i,cls='',lazy=true)=>{const im=images(d)[i]||{};const src=im.url||('/media/'+encodeURIComponent(d.id)+'/'+i);return `<img class="${cls}" src="${e(src)}" width="960" height="540" decoding="async" alt="${e(im.alt||d.title)}" referrerpolicy="no-referrer"${lazy?' loading="lazy"':' fetchpriority="high"'}>`;};
-function editor(d,message='',me=null){
- return page(d?'문서 수정':'새 문서',`<div class="workspace-heading"><h1>${d?'문서 수정':'새 문서'}</h1><a href="/archive">내 보관함</a></div><form class="editor-grid" method="post" action="/save" enctype="multipart/form-data"><input type="hidden" name="id" value="${e(d?.id)}"><section class="panel writing-panel"><h2>문서 내용</h2><div class="field-pair"><label>문서 유형${select('type',types,d?.type)}</label><label>분야${select('domain',domains,d?.domain)}</label></div><label>제목<input name="title" required maxlength="200" value="${e(d?.title)}"></label><div class="writing-tools"><label for="editor-body">본문</label><button type="button" class="secondary" id="generate">Gemini 초안 생성</button></div><textarea id="editor-body" name="body" required>${e(d?.body)}</textarea><details class="search-settings"${d?.seo_title||mediaRecord(d).sources?.length?" open":""}><summary>검색 및 출처 설정</summary><label>검색 제목<input name="searchTitle" maxlength="75" value="${e(d?.seo_title)}" placeholder="비워 두면 문서 제목 사용"></label><label>공개 작성자<input name="byline" maxlength="80" value="${e(mediaRecord(d).byline)}"></label><label>출처 URL · 한 줄에 하나<textarea class="source-input" name="sources">${e((mediaRecord(d).sources||[]).join("\n"))}</textarea></label><label>검색 설명<input name="description" maxlength="170" value="${e(d?.seo_description)}"></label></details><p class="error" role="status" id="message">${e(message)}</p><div class="actions editor-save"><button>저장</button></div></section><aside class="panel media-panel"><h2>문서 이미지</h2><p class="muted">이미지 URL을 입력하세요. 최대 3장까지 지원하며 이미지 없이도 저장·공개할 수 있습니다. 첫 번째 이미지가 대표 이미지입니다.</p>
+function editor(d,message='',me=null,topic=null){
+ return page(d?'문서 수정':'새 문서',`<div class="workspace-heading"><h1>${d?'문서 수정':'새 문서'}</h1><a href="/archive">내 보관함</a></div><form class="editor-grid" method="post" action="/save" enctype="multipart/form-data"><input type="hidden" name="id" value="${e(d?.id)}"><section class="panel writing-panel"><h2>문서 내용</h2><div class="field-pair"><label>문서 유형${select('type',types,d?.type||topic?.type)}</label><label>분야${select('domain',domains,d?.domain||topic?.domain)}</label></div><label>제목<input name="title" required maxlength="200" value="${e(d?.title||topic?.title)}"></label><label>작성 프롬프트<textarea name="instruction" class="source-input" placeholder="선택한 주제의 작성 방향과 핵심 요구사항">${e(topic?.prompt||'')}</textarea></label><div class="writing-tools"><label for="editor-body">본문</label><button type="button" class="secondary" id="generate">Gemini 초안 생성</button></div><textarea id="editor-body" name="body" required>${e(d?.body)}</textarea><details class="search-settings"${d?.seo_title||mediaRecord(d).sources?.length?" open":""}><summary>검색 및 출처 설정</summary><label>검색 제목<input name="searchTitle" maxlength="75" value="${e(d?.seo_title)}" placeholder="비워 두면 문서 제목 사용"></label><label>공개 작성자<input name="byline" maxlength="80" value="${e(mediaRecord(d).byline)}"></label><label>출처 URL · 한 줄에 하나<textarea class="source-input" name="sources">${e((mediaRecord(d).sources||[]).join("\n"))}</textarea></label><label>검색 설명<input name="description" maxlength="170" value="${e(d?.seo_description)}"></label></details><p class="error" role="status" id="message">${e(message)}</p><div class="actions editor-save"><button>저장</button></div></section><aside class="panel media-panel"><h2>문서 이미지</h2><p class="muted">이미지 URL을 입력하세요. 최대 3장까지 지원하며 이미지 없이도 저장·공개할 수 있습니다. 첫 번째 이미지가 대표 이미지입니다.</p>
  ${Array.from({length:3},(_,i)=>`<details class="image-slot"${i===0||images(d)[i]?" open":""}><summary>${i===0?"대표 이미지":"추가 이미지 "+i}</summary>${images(d)[i]&&d?.id?`${imageTag(d,i,'thumb')}<label><input style="width:auto;display:inline" type="checkbox" name="remove${i}"> 삭제</label>`:''}<label>이미지 주소 (https://)<input type="url" name="imageUrl${i}" maxlength="2048" placeholder="https://example.com/image.jpg" value="${e(images(d)[i]?.url||'')}" inputmode="url"></label><label>이미지 설명<input name="alt${i}" maxlength="160" value="${e(images(d)[i]?.alt)}"></label></details>`).join('')}
  </aside></form><script>
  const editorForm=document.querySelector('.editor-grid');
@@ -63,7 +63,7 @@ function editor(d,message='',me=null){
  const form=this.form,status=document.querySelector('#message');
  if(form.body.value.trim()&&!confirm('기존 본문을 Gemini 초안으로 교체할까요?'))return;
  this.disabled=true;status.textContent='Gemini가 초안을 작성 중입니다.';
- try{const r=await fetch('/api/ai/draft',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:form.type.value,domain:form.domain.value,title:form.elements.namedItem("title").value})});
+ try{const r=await fetch('/api/ai/draft',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:form.type.value,domain:form.domain.value,title:form.elements.namedItem("title").value,instruction:form.elements.namedItem("instruction").value})});
  const d=await r.json();if(!r.ok)throw Error(d.error||'생성 실패');
  form.elements.namedItem("title").value=d.title;form.body.value=d.body;form.description.value=String(d.summary||'').slice(0,170);status.textContent='초안 생성 완료 · '+[...d.body].length+'자';
  }catch(error){status.textContent=error.message}finally{this.disabled=false}
@@ -77,6 +77,102 @@ function archive(rows,me){
 function card(d){
  const cover=images(d).length?imageTag(d,0):`<div class="type-cover" aria-hidden="true"><span>${e(d.domain)}</span><strong>${e(d.type)}</strong></div>`;
  return `<a class="card" href="${urlFor(d)}"><div class="card-cover">${cover}</div><div class="card-info"><small class="category">${e(d.domain)} · ${e(d.type)}</small><h2>${e(d.title)}</h2><p>${e(d.seo_description||d.body.slice(0,145))}</p><div class="card-foot"><time>${e(d.published_at?.slice(0,10))}</time><span>전문 읽기</span></div></div></a>`;
+}
+const starterPrompts=[
+{type:'기사',domain:'경제',title:'2026년 글로벌 금리 변화가 한국 기업의 자금조달에 미치는 영향',prompt:'미국과 주요국의 통화정책 변화, 시장금리, 회사채 및 대출 조달비용을 연결해 분석하고 기업 재무담당자가 주목할 대응전략을 제시하세요.'},
+{type:'보고서',domain:'금융',title:'원화 환율 변동성 확대와 수출기업의 환리스크 관리',prompt:'환율 변동 요인, 수출기업의 손익 및 현금흐름 영향, 선물환·옵션 등 헤지수단과 실무상 유의점을 체계적으로 분석하세요.'},
+{type:'기사',domain:'IT·AI',title:'생성형 AI 에이전트가 기업 업무 프로세스를 바꾸는 방식',prompt:'기업 현장에서의 AI 에이전트 활용 사례, 생산성 개선 영역, 도입 비용과 보안·책임 리스크를 균형 있게 다루세요.'},
+{type:'보고서',domain:'산업·에너지',title:'AI 데이터센터 확산에 따른 전력 수요와 발전 인프라 투자 전망',prompt:'데이터센터 전력수요, 송전망 병목, 가스발전·재생에너지·ESS의 역할과 프로젝트 금융 관점의 투자 포인트를 분석하세요.'},
+{type:'기사',domain:'부동산·건설',title:'미국 데이터센터 임대차 시장의 트리플넷 구조와 임대인·임차인 부담',prompt:'NNN 임대차의 비용 배분, 임대료 구조, 운영비·세금·보험·유지보수 부담 및 계약 협상 시 확인사항을 설명하세요.'},
+{type:'보고서',domain:'정치·국제',title:'미중 기술 경쟁이 글로벌 공급망과 한국 산업에 미치는 파급효과',prompt:'수출통제와 관세, 핵심광물 및 반도체 공급망 재편을 살피고 한국 기업의 기회와 위험을 구분해 제시하세요.'},
+{type:'보도자료',domain:'기업·경영',title:'기업의 신규 전략사업 진출 및 투자계획 발표',prompt:'사업 진출 배경, 투자 규모와 일정, 기대효과, 파트너십 및 향후 실행계획을 신뢰감 있는 기업 보도자료 형식으로 작성하세요.'},
+{type:'기사',domain:'사회·문화',title:'고령화와 인구구조 변화가 소비시장에 가져오는 새로운 기회',prompt:'인구구조와 가구 형태 변화가 주거·의료·금융·여가 소비에 미치는 영향을 데이터 확인이 가능한 범위에서 분석하세요.'},
+{type:'보고서',domain:'과학·환경',title:'탄소포집·활용·저장(CCUS) 산업의 상용화 조건과 사업 리스크',prompt:'포집·수송·저장 단계별 기술 및 비용, 인허가, 오프테이크, 세액공제와 프로젝트 파이낸싱의 핵심 리스크를 구분하세요.'},
+{type:'보고서',domain:'법률',title:'AI 활용 기업의 개인정보·저작권·책임 관련 컴플라이언스 점검',prompt:'기업이 AI 서비스를 도입하거나 개발할 때 확인할 개인정보, 저작권, 영업비밀, 결과물 책임과 내부통제 항목을 정리하세요.'},
+{type:'기사',domain:'마케팅',title:'검색에서 AI 답변으로 이동하는 시대의 브랜드 콘텐츠 전략',prompt:'검색엔진과 생성형 AI 답변 환경의 변화를 설명하고 브랜드가 신뢰도 높은 콘텐츠와 전문성을 확보하는 방법을 제시하세요.'},
+{type:'사업계획서',domain:'IT·AI',title:'중소기업용 업무 자동화 AI SaaS 서비스 사업계획',prompt:'고객 문제, 핵심 기능, 목표시장, 경쟁우위, 과금모델, 고객 확보전략, 운영비용 및 12개월 실행계획을 구체화하세요.'},
+{type:'보고서',domain:'경제',title:'미국 재정정책과 국채 발행 확대가 글로벌 금융시장에 미치는 영향',prompt:'재정적자와 국채 공급, 장단기 금리, 달러 및 위험자산에 미치는 경로를 구분해 분석하세요.'},
+{type:'기사',domain:'산업·에너지',title:'전력망 접속 대기와 변전설비 부족이 신규 발전사업에 미치는 영향',prompt:'계통연계 절차, 송전·변전 설비 투자, 인허가 지연과 프로젝트 일정·금융조달에 미치는 영향을 설명하세요.'},
+{type:'보고서',domain:'부동산·건설',title:'미국 상업용 부동산 대출의 리파이낸싱 리스크와 대응방안',prompt:'만기 집중, 금리·DSCR·LTV 변화, 감정평가와 대주단 협의, 자본확충 및 대환 구조를 분석하세요.'},
+{type:'기사',domain:'금융',title:'사모대출 시장 성장과 은행 대출시장에 미치는 경쟁 효과',prompt:'사모대출의 구조와 성장 배경, 차주·대주 관점의 장단점, 은행 및 신디케이트론 시장과의 관계를 설명하세요.'},
+{type:'사업계획서',domain:'사회·문화',title:'지역 기반 시니어 케어 서비스 플랫폼 사업계획',prompt:'고객과 보호자의 미충족 수요, 서비스 구성, 공급자 네트워크, 수익모델, 규제 고려사항 및 확장전략을 작성하세요.'},
+{type:'보고서',domain:'정치·국제',title:'주요국 산업정책과 보조금 경쟁이 해외투자 의사결정에 미치는 영향',prompt:'미국·유럽·아시아의 산업지원 정책과 현지생산 요건, 세제 혜택, 공급망 요건을 비교하고 투자 시사점을 제시하세요.'},
+{type:'보도자료',domain:'과학·환경',title:'친환경 기술 실증사업 착수 및 민관 협력 발표',prompt:'기술의 목적과 실증 범위, 참여기관 역할, 일정, 환경적 기대효과 및 후속 상용화 계획을 명료하게 작성하세요.'},
+{type:'기사',domain:'기업·경영',title:'기업의 현금흐름 중심 경영과 투자 우선순위 재편',prompt:'고금리·불확실성 환경에서 기업이 투자심사, 운전자본, 배당, 차입금 관리와 사업 포트폴리오를 어떻게 조정하는지 분석하세요.'}
+];
+async function ensurePromptStore(db){
+ await db.prepare("CREATE TABLE IF NOT EXISTS prompt_topics(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,type TEXT NOT NULL,domain TEXT NOT NULL,title TEXT NOT NULL,prompt TEXT NOT NULL,source TEXT NOT NULL DEFAULT 'ai',created_at TEXT NOT NULL)").run();
+ await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS prompt_topics_unique_title ON prompt_topics(user_id,lower(title))").run();
+ await db.prepare("CREATE INDEX IF NOT EXISTS prompt_topics_recent ON prompt_topics(user_id,created_at DESC)").run();
+}
+async function seedPromptTopics(db,userId){
+ await ensurePromptStore(db);
+ const count=await one(db,'SELECT COUNT(*) AS n FROM prompt_topics WHERE user_id=?',userId);
+ if(Number(count?.n||0)>0)return;
+ const now=new Date().toISOString();
+ for(const p of starterPrompts)await run(db,"INSERT OR IGNORE INTO prompt_topics(id,user_id,type,domain,title,prompt,source,created_at) VALUES(?,?,?,?,?,?,?,?)",crypto.randomUUID(),userId,p.type,p.domain,p.title,p.prompt,'starter',now);
+}
+function promptCard(p){
+ return '<a class="card prompt-card" href="/write?promptId='+encodeURIComponent(p.id)+'"><div class="card-info"><small class="category">'+e(p.type)+' · '+e(p.domain)+(p.source==='ai'?' · AI 추천':' · 기본 주제')+'</small><h2>'+e(p.title)+'</h2><p>'+e(p.prompt)+'</p><div class="card-foot"><time>'+e((p.created_at||'').slice(0,10))+'</time><span>이 주제로 작성 →</span></div></div></a>';
+}
+async function promptsPage(db,me){
+ await seedPromptTopics(db,me.id);
+ const topics=await list(db,'SELECT * FROM prompt_topics WHERE user_id=? ORDER BY created_at DESC LIMIT 300',me.id);
+ return page('프롬프트 라이브러리','<section class="hero"><div><span class="eyebrow">HUB STUDIO 8 · PROMPT LIBRARY</span><h1>좋은 주제에서<br>좋은 문서가 시작됩니다.</h1><p>분야별 기본 주제를 골라 바로 글을 쓰거나, AI에게 새로운 주제 10개를 추천받으세요. 추천 주제는 내 라이브러리에 자동 저장됩니다.</p></div></section><section class="panel"><div class="section-head"><div><h2>AI 주제 추천</h2><span>새 추천 10개를 생성하고 자동으로 보관합니다.</span></div></div><div class="field-pair"><label>문서 유형'+select('type',types,'','전체 유형')+'</label><label>분야'+select('domain',domains,'','전체 분야')+'</label></div><div class="actions actionrow"><button id="recommend">AI 추천 10개 받기</button><span id="recommend-status" class="muted" role="status"></span></div></section><section><div class="section-head"><h2>내 주제 라이브러리</h2><span id="topic-count">'+topics.length+'개 누적</span></div><div class="grid" id="prompt-list">'+topics.map(promptCard).join('')+'</div></section><script>
+const recommendButton=document.querySelector('#recommend');
+recommendButton.addEventListener('click',async()=>{
+ recommendButton.disabled=true;
+ const status=document.querySelector('#recommend-status');
+ status.textContent='AI가 새로운 주제를 구상하고 있습니다…';
+ try{
+  const response=await fetch('/api/prompts/recommend',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:document.querySelector('select[name=type]').value,domain:document.querySelector('select[name=domain]').value})});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw new Error(data.error||'추천을 생성하지 못했습니다.');
+  const list=document.querySelector('#prompt-list');
+  data.topics.forEach(topic=>{
+   const a=document.createElement('a');a.className='card prompt-card';a.href='/write?promptId='+encodeURIComponent(topic.id);
+   const info=document.createElement('div');info.className='card-info';
+   const meta=document.createElement('small');meta.className='category';meta.textContent=topic.type+' · '+topic.domain+' · AI 추천';
+   const title=document.createElement('h2');title.textContent=topic.title;
+   const desc=document.createElement('p');desc.textContent=topic.prompt;
+   const foot=document.createElement('div');foot.className='card-foot';const date=document.createElement('time');date.textContent=(topic.created_at||'').slice(0,10);const action=document.createElement('span');action.textContent='이 주제로 작성 →';
+   foot.append(date,action);info.append(meta,title,desc,foot);a.append(info);list.prepend(a);
+  });
+  document.querySelector('#topic-count').textContent=data.total+'개 누적';
+  status.textContent='새 주제 '+data.topics.length+'개를 저장했습니다.';
+ }catch(error){status.textContent=error.message}
+ finally{recommendButton.disabled=false}
+});
+</script>',{me,active:'/prompts'});
+}
+async function recommendPrompts(req,env,db,me){
+ await ensurePromptStore(db);
+ if(!env.GEMINI_API_KEY)return j({ok:false,error:'Gemini API 키가 Worker Secret에 등록되지 않았습니다.'},503);
+ const b=await req.json(),wantedType=types.includes(b.type)?b.type:'',wantedDomain=domains.includes(b.domain)?b.domain:'';
+ const prompt='당신은 한국어 전문 콘텐츠 기획자입니다. 기사·보고서·보도자료·사업계획서에 적합한 참신하고 구체적인 주제 10개를 만드세요. 분야는 '+(wantedDomain||domains.join(', '))+' 중에서 다양하게 고르고, 문서 유형은 '+(wantedType||types.join(', '))+'를 고르게 섞으세요. 이미 흔한 일반론보다 구체적인 쟁점과 분석 관점이 드러나는 주제를 만드세요. 제목은 실제 전문 문서 제목처럼 작성하고, prompt에는 작성 방향·핵심 분석 항목·독자에게 줄 가치를 2~4문장으로 적으세요. 허위 통계나 현재 사실을 단정하지 마세요. 정확히 10개를 JSON으로 반환하세요. 형식: {"topics":[{"type":"기사","domain":"경제","title":"제목","prompt":"작성 지시사항"}]}';
+ let response,data;
+ const payload={contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.9,responseMimeType:'application/json'}};
+ for(const model of ['gemini-3.8-flash','gemini-3.5-flash','gemini-2.5-flash']){
+  response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':env.GEMINI_API_KEY},body:JSON.stringify(payload)});
+  if(response.ok){data=await response.json();break}
+ }
+ if(!response||!response.ok)return j({ok:false,error:'Gemini 주제 추천 API 응답 오류'},502);
+ try{
+  const raw=data.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'{}';
+  const parsed=JSON.parse(raw.replace(/^\`\`\`json\\s*/,'').replace(/\\s*\`\`\`$/,''));
+  const incoming=Array.isArray(parsed.topics)?parsed.topics:[];
+  const now=new Date().toISOString();
+  for(const item of incoming.slice(0,15)){
+   const type=types.includes(item.type)?item.type:(wantedType||'기사');
+   const domain=domains.includes(item.domain)?item.domain:(wantedDomain||'경제');
+   const title=String(item.title||'').trim().slice(0,200),instruction=String(item.prompt||'').trim().slice(0,2000);
+   if(title.length<8||instruction.length<15)continue;
+   await run(db,"INSERT OR IGNORE INTO prompt_topics(id,user_id,type,domain,title,prompt,source,created_at) VALUES(?,?,?,?,?,?,?,?)",crypto.randomUUID(),me.id,type,domain,title,instruction,'ai',now);
+  }
+  const topics=await list(db,"SELECT * FROM prompt_topics WHERE user_id=? AND created_at=? AND source='ai' ORDER BY rowid DESC",me.id,now);
+  const total=await one(db,'SELECT COUNT(*) AS n FROM prompt_topics WHERE user_id=?',me.id);
+  return j({ok:true,topics,total:Number(total?.n||0)});
+ }catch(error){return j({ok:false,error:'AI 응답을 주제 목록으로 변환하지 못했습니다. 다시 시도해 주세요.'},502)}
 }
 async function marketPage(u,db,home=false,me=null){
  const q=(u.searchParams.get('q')||'').slice(0,100),t=u.searchParams.get('type')||'',d=u.searchParams.get('domain')||'';
@@ -171,13 +267,13 @@ export default {async fetch(req,env){
   }
   if(!me)return path.startsWith('/api/')?j({error:'로그인이 필요합니다.'},401):redirect('/login?next='+encodeURIComponent(nextPath(path+u.search)));
   if(path==='/logout'&&req.method==='POST'){await run(db,'DELETE FROM sessions WHERE id=?',cookie(req));const response=redirect('/market');response.headers.set('set-cookie',sessionCookie('',0));return response}
-  if(path==='/api/ai/draft'&&req.method==='POST')return await draft(req,env);
+  if(path==='/api/ai/draft'&&req.method==='POST')return await draft(req,env);\n  if(path==='/prompts')return await promptsPage(db,me);\n  if(path==='/api/prompts/recommend'&&req.method==='POST')return await recommendPrompts(req,env,db,me);
   if(path==='/archive')return archive(await list(db,'SELECT * FROM documents WHERE user_id=? ORDER BY updated_at DESC',me.id),me);
   if(path==='/write'||path==='/review'){
    const id=u.searchParams.get('id');
    const d=id?await one(db,"SELECT * FROM documents WHERE id=? AND user_id=? AND status!='deleted'",id,me.id):null;
    if(id&&!d)return html('문서를 찾을 수 없습니다.',404);
-   if(path==='/write')return editor(d,'',me);
+   if(path==='/write'){let topic=null;const promptId=u.searchParams.get('promptId');if(promptId){await seedPromptTopics(db,me.id);topic=await one(db,'SELECT * FROM prompt_topics WHERE id=? AND user_id=?',promptId,me.id);if(!topic)return html('선택한 프롬프트를 찾을 수 없습니다. <a href="/prompts">프롬프트 라이브러리</a>',404)}return editor(d,'',me,topic)}
    if(!d)return redirect('/archive');
    return page('문서 미리보기',`<div class="actions review-bar"><a href="/archive">내 보관함</a>${u.searchParams.has('delete')?action(d,'delete','휴지통으로 이동','danger'):d.status!=='published'?action(d,'publish','공개마켓 배포','button'):''}</div>${article(d)}`,{me,active:'/archive'});
   }
