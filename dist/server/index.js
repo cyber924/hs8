@@ -159,7 +159,7 @@ async function recommendPrompts(req,env,db,me){
  if(!response||!response.ok)return j({ok:false,error:'Gemini 주제 추천 API 응답 오류'},502);
  try{
   const raw=data.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'{}';
-  const parsed=JSON.parse(raw.replace(/^\`\`\`json\\s*/,'').replace(/\\s*\`\`\`$/,''));
+  const parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/\s*```$/,''))
   const incoming=Array.isArray(parsed.topics)?parsed.topics:[];
   const now=new Date().toISOString();
   for(const item of incoming.slice(0,15)){
@@ -267,7 +267,9 @@ export default {async fetch(req,env){
   }
   if(!me)return path.startsWith('/api/')?j({error:'로그인이 필요합니다.'},401):redirect('/login?next='+encodeURIComponent(nextPath(path+u.search)));
   if(path==='/logout'&&req.method==='POST'){await run(db,'DELETE FROM sessions WHERE id=?',cookie(req));const response=redirect('/market');response.headers.set('set-cookie',sessionCookie('',0));return response}
-  if(path==='/api/ai/draft'&&req.method==='POST')return await draft(req,env);\n  if(path==='/prompts')return await promptsPage(db,me);\n  if(path==='/api/prompts/recommend'&&req.method==='POST')return await recommendPrompts(req,env,db,me);
+  if(path==='/api/ai/draft'&&req.method==='POST')return await draft(req,env);
+  if(path==='/prompts')return await promptsPage(db,me);
+  if(path==='/api/prompts/recommend'&&req.method==='POST')return await recommendPrompts(req,env,db,me);
   if(path==='/archive')return archive(await list(db,'SELECT * FROM documents WHERE user_id=? ORDER BY updated_at DESC',me.id),me);
   if(path==='/write'||path==='/review'){
    const id=u.searchParams.get('id');
