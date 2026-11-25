@@ -159,7 +159,7 @@ async function recommendPrompts(req,env,db,me){
  if(!response||!response.ok)return j({ok:false,error:'Gemini 주제 추천 API 응답 오류'},502);
  try{
   const raw=data.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'{}';
-  const parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/\s*```$/,''))
+  const parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/\s*```$/,''));
   const incoming=Array.isArray(parsed.topics)?parsed.topics:[];
   const now=new Date().toISOString();
   for(const item of incoming.slice(0,15)){
